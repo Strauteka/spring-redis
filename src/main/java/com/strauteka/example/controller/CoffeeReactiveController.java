@@ -4,10 +4,12 @@ import com.strauteka.example.entity.Coffee;
 import com.strauteka.example.service.CoffeeReactiveService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
@@ -17,6 +19,7 @@ import java.util.List;
 
 import static com.strauteka.example.controller.ControllerUtils.mediaTypeCheck;
 
+@Slf4j
 @RestController
 @RequestMapping(path = "reactive/coffee", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CoffeeReactiveController {
@@ -96,7 +99,9 @@ public class CoffeeReactiveController {
     }
 
     @GetMapping("count")
-    Mono<Long> countCoffee() {
+    Mono<Long> countCoffee(ServerWebExchange serverWebExchange) {
+        final String logPrefix = serverWebExchange.getLogPrefix();
+        log.debug(String.format("%s Preparing Count response", logPrefix));
         return coffeeReactiveService.count();
     }
 

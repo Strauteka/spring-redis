@@ -7,6 +7,7 @@ import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -28,18 +29,29 @@ public class CoffeeAdminController {
     }
 
     @ApiOperation(value = "This method is used to generate data")
-    @PostMapping(value = "generate")
-    Mono<Long> generateCoffee(@RequestParam(value = "count", defaultValue = "10") Integer count) {
+    @PostMapping(value = "generate", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    Flux<Integer> generateCoffee(ServerWebExchange serverWebExchange,
+                                 @RequestParam(value = "count", defaultValue = "1000") Integer count,
+                                 @RequestParam(value = "requestMillis", defaultValue = "3000") Integer requestMillis,
+                                 @RequestParam(value = "bufferCount", defaultValue = "100") Integer bufferCount) {
+
+        final String logPrefix = serverWebExchange.getLogPrefix();
+        log.debug(String.format("%s Preparing to generate data", logPrefix));
 
         final Flux<Dummy> dummyFlux = Flux.just("AFFOGATO", "COLD BREW COFFEE", "ESPRESSO")
                 .flatMap(n1 -> Flux.just("Rubber", "Cold black", "Bitter")
                         .map(n2 -> Dummy.of(n1, n2))).repeat();
 
-        return Flux.range(0, count)
+        Flux<Integer> map = Flux.range(0, count)
                 .zipWith(dummyFlux,
                         (id, dummy) -> new Coffee(null, dummy.a + id, new Date(), dummy.b + id))
                 .flatMap(coffeeReactiveService::save)
-                .count();
+                .take(Duration.ofMillis(requestMillis))
+                .buffer(bufferCount).map(n -> {
+                    log.debug(String.format("%s Generating data: %d", logPrefix, n.size()));
+                    return n.size();
+                });
+        return map.doFinally(sign -> log.debug(String.format("%s Data generated", logPrefix)));
     }
 
     @ApiOperation(value = "This method is used to subscribe / unsubscribe on data change for internal log")
@@ -59,12 +71,25 @@ public class CoffeeAdminController {
     }
 
     @ApiOperation(value = "This method is used to delete random data")
-    @DeleteMapping(value = "delete")
-    Mono<Long> deleteKeys(@RequestParam(value = "count", defaultValue = "10") Long count,
-                          @RequestParam(value = "requestSec", defaultValue = "5") Integer requestSec) {
-        return coffeeReactiveService
-                .getAll(Duration.ofSeconds(requestSec), count, true)
-                .flatMap(cafe -> coffeeReactiveService.delete(cafe.getId())).count();
+    @DeleteMapping(value = "delete", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    Flux<Integer> deleteKeys(ServerWebExchange serverWebExchange,
+                             @RequestParam(value = "count", defaultValue = "1000") Long count,
+                             @RequestParam(value = "requestMillis", defaultValue = "3000") Integer requestMillis,
+                             @RequestParam(value = "bufferCount", defaultValue = "100") Integer bufferCount) {
+
+        final String logPrefix = serverWebExchange.getLogPrefix();
+        log.debug(String.format("%s Preparing to delete data", logPrefix));
+        final Duration timespan = Duration.ofMillis(requestMillis);
+        Flux<Integer> map = coffeeReactiveService
+                .getAll(timespan, count, true)
+                .flatMap(cafe -> coffeeReactiveService.delete(cafe.getId()))
+                .take(timespan)
+                .buffer(bufferCount).map(n -> {
+                    log.debug(String.format("%s Deleting data: %d", logPrefix, n.size()));
+                    return n.size();
+                });
+        return map
+                .doFinally(sign -> log.debug(String.format("%s Data deleted", logPrefix)));
     }
 
     private static class Dummy {

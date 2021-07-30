@@ -20,7 +20,7 @@ opt 3
 `docker run --name=local-redis -p=127.0.0.1:6379:6379 --rm redis:alpine`
 
 ## Swagger API documentation
-http://127.0.0.1:8080/swagger-ui.html
+http://127.0.0.1:8080/swagger-ui/index.html
 
 SSE  
 `curl -N --http2 -H "Accept:text/event-stream" http://127.0.0.1:8080/coffee/sse`
@@ -35,6 +35,6 @@ SSE
     1) `curl -N --http2 -H "Accept:text/event-stream" http://127.0.0.1:8080/coffee/sse`
    
 3) Edit data on second service API
-    1) http://127.0.0.1:8081/swagger-ui.html
+    1) http://127.0.0.1:8081/swagger-ui/index.html
     
 _You should receive notifications on SSE connection through Redis PUB/SUB_
