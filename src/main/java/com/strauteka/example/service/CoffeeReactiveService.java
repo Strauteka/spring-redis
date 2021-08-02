@@ -69,12 +69,11 @@ public class CoffeeReactiveService {
      * @return same item param
      */
     public Mono<Tuple2<Coffee, Boolean>> notify(Mono<Tuple2<Coffee, Boolean>> item, boolean isDeleted) {
-        return item.map((Tuple2<Coffee, Boolean> i) -> {
-            if (i.getT2()) {
+        return item.doOnNext(n -> {
+            if (n.getT2()) {
                 // Subscribe forces to evaluate notify
-                this.coffeeReactiveChannel.notifyAboutCoffee(i.getT1(), isDeleted).subscribe();
+                this.coffeeReactiveChannel.notifyAboutCoffee(n.getT1(), isDeleted).subscribe();
             }
-            return i;
         });
     }
 
