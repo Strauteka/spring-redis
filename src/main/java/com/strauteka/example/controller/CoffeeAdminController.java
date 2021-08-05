@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -42,16 +43,15 @@ public class CoffeeAdminController {
                 .flatMap(n1 -> Flux.just("Rubber", "Cold black", "Bitter")
                         .map(n2 -> Dummy.of(n1, n2))).repeat();
 
-        Flux<Integer> map = Flux.range(0, count)
+        return Flux.range(0, count)
                 .zipWith(dummyFlux,
                         (id, dummy) -> new Coffee(null, dummy.a + id, new Date(), dummy.b + id))
                 .flatMap(coffeeReactiveService::save)
                 .take(Duration.ofMillis(requestMillis))
-                .buffer(bufferCount).map(n -> {
-                    log.debug(String.format("%s Generating data: %d", logPrefix, n.size()));
-                    return n.size();
-                });
-        return map.doFinally(sign -> log.debug(String.format("%s Data generated", logPrefix)));
+                .buffer(bufferCount)
+                .map(List::size)
+                .doOnNext(n -> log.debug(String.format("%s Generating data: %d", logPrefix, n)))
+                .doFinally(sign -> log.debug(String.format("%s Data generated", logPrefix)));
     }
 
     @ApiOperation(value = "This method is used to subscribe / unsubscribe on data change for internal log")
@@ -80,15 +80,13 @@ public class CoffeeAdminController {
         final String logPrefix = serverWebExchange.getLogPrefix();
         log.debug(String.format("%s Preparing to delete data", logPrefix));
         final Duration timespan = Duration.ofMillis(requestMillis);
-        Flux<Integer> map = coffeeReactiveService
+        return coffeeReactiveService
                 .getAll(timespan, count, true)
                 .flatMap(cafe -> coffeeReactiveService.delete(cafe.getId()))
                 .take(timespan)
-                .buffer(bufferCount).map(n -> {
-                    log.debug(String.format("%s Deleting data: %d", logPrefix, n.size()));
-                    return n.size();
-                });
-        return map
+                .buffer(bufferCount)
+                .map(List::size)
+                .doOnNext(n -> log.debug(String.format("%s Deleting data: %d", logPrefix, n)))
                 .doFinally(sign -> log.debug(String.format("%s Data deleted", logPrefix)));
     }
 

@@ -72,7 +72,7 @@ public class CoffeeReactiveController {
                 .body(
                         this.coffeeReactiveService
                                 .getAll(Duration.ofSeconds(requestSec), limit, limitRequest)
-                                .buffer(bufferedSize)
+                                .buffer(bufferedSize).doOnNext(n -> log.info("Sending next: {}", n.size()))
                 );
     }
 
